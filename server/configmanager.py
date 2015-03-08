@@ -31,7 +31,7 @@ def write_file(path, data):
 
 def gen_and_store_keys(uuid):
     certificate, privatekey = authentication.generate_keypair(uuid)
-    write_file(privatekey, privatekey)
+    write_file(privatekeypath, privatekey)
     write_file(certificatepath, certificate)
     write_file(cafilepath, '')
 
