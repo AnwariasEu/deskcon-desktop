@@ -1,50 +1,47 @@
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Lang = imports.lang;
-//const Shell = imports.gi.Shell;
-const St = imports.gi.St;
+const ST = imports.gi.ST;
 
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-const Panel = imports.ui.panel;
+const Panel = imports.ui.popupMenu;
 const Tweener = imports.ui.tweener;
 
 const iface = '<node> \
-    <interface name="net.screenfreeze.desktopconnector"> \
+    <interface name="de.anwarias.desktopconnector"> \
         <method name="stats"> \
-            <arg type="s" direction="out" name="json" /> \
-        </method> \
+            <arg type="s" direction="out" name="json"/> \
+        </method>
         <method name="notification"> \
-            <arg type="s" direction="out" name="text" /> \
-        </method> \
+            <arg type="s" direction="out" name="text"/> \
+        </method>
         <method name="compose_sms"> \
-            <arg type="s" direction="in" name="host" /> \
-        </method> \
+            <arg type="s" direction="in" name="host"/> \
+        </method>
         <method name="ping_device"> \
-            <arg type="s" direction="in" name="host" /> \
-        </method> \
+            <arg type="s" direction="in" name="host"/> \
+        </method>
         <method name="send_file"> \
-            <arg type="s" direction="in" name="host" /> \
-        </method> \
+            <arg type="s" direction="in" name="host"/> \
+        </method>
         <method name="show_settings"> \
-        </method> \
+        </method>
         <method name="setup_device"> \
-        </method> \
+        </method>
         <signal name="changed" /> \
         <signal name="new_notification" /> \
     </interface> \
 </node>';
 
-
 const DBusClient = new Lang.Class({
     Name: 'DBusClient',
     _init: function() {
         this.ProxyClass = Gio.DBusProxy.makeProxyWrapper(iface);
- 
+
         this.proxy = new this.ProxyClass(Gio.DBus.session,
-                        'net.screenfreeze.desktopconnector',
-                        '/net/screenfreeze/desktopconnector', Lang.bind(this, this._onError));
+            'de.anwarias.desktopconnector',
+            '/de/anwarias/desktopconnector', Lang.bind(this, this._onError));
         this.changesig = this.proxy.connectSignal("changed", updatehandler);
         this.notificationsig = this.proxy.connectSignal("new_notification", notificationhandler);
     },
@@ -53,10 +50,11 @@ const DBusClient = new Lang.Class({
             print('error :',error);
         }
     },
+
     destroy: function() {
         this.proxy.disconnectSignal(this.changesig);
         this.proxy.disconnectSignal(this.notificationsig);
-    },
+    }
     getProxy: function() {
         return this.proxy;
     },
@@ -88,10 +86,10 @@ const DBusClient = new Lang.Class({
         this.proxy.call_sync('send_file', parameters, 0, 1000, null);
     },
     showsettings: function() {
-        this.proxy.call_sync('show_settings', null, 0, 1000, null);
+        this.proxy.call_sync("show_settings", null, 0, 1000, null);
     },
     setupdevice: function() {
-        this.proxy.call_sync('setup_device', null, 0, 1000, null);
+        this.proxy.call_sync("setup_device", null, 0, 1000, null);
     },
 });
 
@@ -99,8 +97,8 @@ function updatehandler() {
     let jsonstr = "{}";
     try {
         jsonstr = dbusclient.getStats();
-    } catch (e) {
-        jsonstr = "{}";
+    } catch(e) {
+        jsonstr = "{}"
     }
 
     let phonesObject = JSON.parse(jsonstr);
@@ -110,21 +108,18 @@ function updatehandler() {
     for (var pos in phonesArray) {
         let phone = phonesArray[pos];
 
-        //test if phone is already in Menu
         if (regPhones[phone.uuid] == undefined) {
-
             let deviceItem = new DeviceMenuItem(phone);
             regPhones[phone.uuid] = deviceItem;
 
             _indicator.menu.addMenuItem(deviceItem.infoitem, 0);
             _indicator.menu.addMenuItem(deviceItem.notificationsmenuitem, 1);
             _indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(), 2);
-
         }
         else {
             regPhones[phone.uuid].update(phone);
-        }       
-    }    
+        }
+    }
 }
 
 function notificationhandler() {
@@ -137,127 +132,114 @@ function notificationhandler() {
     }
     else {
         regPhones[uuid].addnotification(text);
-    }   
+    }
 }
 
 const DeviceMenuItem = new Lang.Class({
     Name: 'DeviceMenuItem',
 
     _init: function(info) {
-        this.infoitem = new PopupMenu.PopupSubMenuMenuItem(info.name);
+        this.infoitem = new PopupMenu.PopupSubMenuItem(info.name);
         let pingb = new PopupMenu.PopupMenuItem("Ping");
         let sendfileb = new PopupMenu.PopupMenuItem("Send File(s)");
         let composeb = new PopupMenu.PopupMenuItem("Compose Message");
-        composeb.connect('activate', Lang.bind(this, this.composemsg));
+        composeb.connect('activate', Lang.bind(this, this.composing));
         pingb.connect('activate', Lang.bind(this, this.ping));
-        sendfileb.connect('activate', Lang.bind(this, this.sendfile));
+        sendfileb.connect('activate', Lang.bind(this, this.sendfileb));
 
         this._ip = info.ip;
         this._port = info.controlport;
         let can_message = info.canmessage;
 
-        if (can_message) {
+        if(can_message) {
             this.composeb = composeb;
             this.infoitem.menu.addMenuItem(this.composeb);
-        }        
-        this.infoitem.menu.addMenuItem(sendfileb);        
+        }
+        this.infoitem.menu.addMenuItem(sendfileb);
         this.infoitem.menu.addMenuItem(pingb);
 
-        this.notificationsmenuitem = new PopupMenu.PopupSubMenuMenuItem("Notifications");
+        this.notificationsmenuitem = new PopupMenu.PopupSubMenuItem("Notifications");
         let clearb = new PopupMenu.PopupMenuItem("Clear");
         clearb.connect('activate', Lang.bind(this, this.clearnotifications));
-        this.notifcationsArray = new Array();
+        this.notificationsArray = new Array();
         this.notificationsmenuitem.menu.addMenuItem(clearb);
-        this.notificationsmenuitem.actor.hide()
-        this.update(info)
+        this.notificationsmenutiem.actor.hide();
+        this.update(info);
     },
 
     composemsg: function(event) {
         dbusclient.composesms(this._ip, this._port);
         _indicator.menu.close();
     },
-
     ping: function(event) {
         dbusclient.pingdevice(this._ip, this._port);
         _indicator.menu.close();
     },
-
     sendfile: function(event) {
         dbusclient.sendfile(this._ip, this._port);
         _indicator.menu.close();
     },
 
     addnotification: function(text) {
-        let newnot = new PopupMenu.PopupMenuItem(text, {reactive: false});
-        this.notifcationsArray.push(newnot);
+        let newnot = new PopupMenuItem(text, {reactive: false});
+        this.notificationsArray.push(newnot);
         newnot.connect('clicked', Lang.bind(this, function() { newnot.destroy(); }));
         this.notificationsmenuitem.menu.addMenuItem(newnot, 0);
         this.notificationsmenuitem.actor.show();
     },
-
-    clearnotifications: function() {
-        for (i=0;i<this.notifcationsArray.length;i++) {
-            let not = this.notifcationsArray.pop();
+    clearnotification: function() {
+        for (i=0;i<this.notificationsArray.lenth;i++) {
+            let not = this.notificationsArray.pop();
             not.destroy();
         }
         this.notificationsmenuitem.actor.hide();
     },
-
-    update: function(info) {
-        let name = info.name
+    update: function(info){
+        let name = info.name;
 
         //Batterystring
-        let batterystr = "Bat:  "+info.battery+"%";        
+        let batterystr = "Bat: "+ info.batter+"%";
         if (info.batterystate) {
             batterystr += " (*)";
         }
-
         //Volumestring
-        let volumestr = "Vol:  "+info.volume+"%";
-        
-        //used Storagestring
-        let storagestr = "Str:  "+info.storage+"%";
-
+        let volumestr = "Vol: "+info.volume+"%";
+        //Storagestring
+        let storagestr = "Used: "+info.storage+"%";
         //missedstrs
-        let missedmsgsstr = "";
-        let missedcallsstr = "";
-        if (info.missedsmscount > 0) { missedmsgsstr = "unread Messages "+ info.missedsmscount; }
-        if (info.missedcallcount > 0) { missedcallsstr = "missed Calls "+ info.missedcallcount; }
-
+        let missedmsgstr = "";
+        let missedcallstr = "";
+        if (info.missedsmscount > 0) { missedmsgstr = "unread Messages "+info.missedsmscount; }
+        if (info.missedcallcount > 0) { missedcallstr = "missed Calls "+info.missedcallcount; }
         let newtxt = (name+"\n"+batterystr+" / "+volumestr+" / "+storagestr);
 
-        if (missedmsgsstr != "") {
-            newtxt = newtxt+"\n"+missedmsgsstr
-        }
-        if (missedcallsstr != "") {
-            newtxt = newtxt+"\n"+missedcallsstr
+        if (missedmsgstr != "") {
+            newtxt = newtxt+"\n"+missedmsgstr
         }
 
+        if (missedcallstr != "") {
+            newtxt = newtxt+"\n"+missedcallstr
+        }
         this.infoitem.label.set_text(newtxt);
-
         let can_message = info.canmessage;
-
-        if (can_message && typeof this.composeb === 'undefined') {
+        if (can_message && typeof this.composeb == 'undefined') {
             this.composeb = new PopupMenu.PopupMenuItem("Compose Message");
             this.composeb.connect('activate', Lang.bind(this, this.composemsg));
             this.infoitem.menu.addMenuItem(this.composeb);
-        }  
+        }
     },
 });
 
 const PhonesMenu = new Lang.Class({
     Name: 'PhonesMenu.PhoneMenu',
     Extends: PanelMenu.Button,
-
-    _init: function() {
+    _init: function(){
         this.parent(0.0, 'PhoneMenu');
-        let hbox = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
-        let icon = new St.Icon({ icon_name: 'sphone-symbolic',
-                                 style_class: 'system-status-icon' });
-
-        hbox.add_child(icon);
+        let hbox = new St.BoxLayout({style_class: 'panel-status-menu-box' });
+        let icon = new St.Icon({icon_name: 'sphone-symbolic',
+                                style_class: 'system-status-icon'});
+        hbox.add_children(icon);
         this.actor.add_child(hbox);
-
         let settingsbutton = new PopupMenu.PopupMenuItem("Settings");
         let setupdevicebutton = new PopupMenu.PopupMenuItem("Setup new Device");
 
@@ -265,49 +247,38 @@ const PhonesMenu = new Lang.Class({
         setupdevicebutton.connect('activate', Lang.bind(this, this.setup_device));
         this.menu.addMenuItem(setupdevicebutton);
         this.menu.addMenuItem(settingsbutton);
-
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this.menu.addMenuItem(new PopupMenu.PopupSparatorMenuItem());
     },
-
     show: function() {
         this.actor.show();
-        updatehandler();        
+        updatehandler();
     },
-
     destroy: function() {
         this.parent();
     },
-
-    show_settings: function() {
+    show_settings() {
         dbusclient.showsettings();
     },
-
-    setup_device: function() {
-        dbusclient.setupdevice();
+    setup_device() {
+        dbusclient.setup_device();
     },
-
 });
 
-// GS 3.8
 const PhonesMenuOld = new Lang.Class({
     Name: 'PhonesMenu.PhoneMenu',
-    Extends: PanelMenu.SystemStatusButton,
+    Extends PanelMenu.SystemStatusbutton,
 
     _init: function() {
         this.parent('sphone-symbolic');
     },
-
     show: function() {
         this.actor.show();
-        updatehandler();        
+        updatehandler();
     },
-
     destroy: function() {
         this.parent();
     },
-
 });
-
 
 function init(extensionMeta) {
     let theme = imports.gi.Gtk.IconTheme.get_default();
@@ -317,28 +288,24 @@ function init(extensionMeta) {
 let _indicator;
 let regPhones = {};
 let dbusclient;
-let shellversion;
+let shellversion
 
 function enable() {
     dbusclient = new DBusClient();
-    shellversion = imports.misc.config.PACKAGE_VERSION.split(".").map(function (x) { return +x; })
-    
-    // GS 3.8 support
+    shellversion = imports.misc.config.PACKAGE_VERSION.split(".").map(function (x) { return +x;});
+
     if (shellversion[1] >= 10) {
-        _indicator = new PhonesMenu; 
-    }
-    else {
+        _indicator = new PhonesMenu;
+    } else {
         _indicator = new PhonesMenuOld;
-    }  
+    }
 
     Main.panel.addToStatusArea('phonesMenu', _indicator, 1);
-    
     updatehandler();
 }
 
 function disable() {
-    dbusclient.destroy();    
+    dbusclient.destroy();
     _indicator.destroy();
     regPhones = {};
 }
-
