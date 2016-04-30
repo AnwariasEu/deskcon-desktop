@@ -1,34 +1,37 @@
+const Applet = imports.ui.applet;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Lang = imports.lang;
-const ST = imports.gi.ST;
-
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
-const Panel = imports.ui.popupMenu;
+const PopupMenu = imports.ui.popupMenu;
+//const Panel = imports.ui.popupMenu;
+const Gettext = imports.gettext.domain('cinnamon-applets');
+const _ = Gettext.gettext;
+const St = imports.gi.St;
 const Tweener = imports.ui.tweener;
 
 const iface = '<node> \
     <interface name="de.anwarias.desktopconnector"> \
         <method name="stats"> \
             <arg type="s" direction="out" name="json"/> \
-        </method>
+        </method> \
         <method name="notification"> \
             <arg type="s" direction="out" name="text"/> \
-        </method>
+        </method> \
         <method name="compose_sms"> \
             <arg type="s" direction="in" name="host"/> \
-        </method>
+        </method> \
         <method name="ping_device"> \
             <arg type="s" direction="in" name="host"/> \
-        </method>
+        </method> \
         <method name="send_file"> \
             <arg type="s" direction="in" name="host"/> \
-        </method>
+        </method> \
         <method name="show_settings"> \
-        </method>
+        </method> \
         <method name="setup_device"> \
-        </method>
+        </method> \
         <signal name="changed" /> \
         <signal name="new_notification" /> \
     </interface> \
@@ -54,7 +57,7 @@ const DBusClient = new Lang.Class({
     destroy: function() {
         this.proxy.disconnectSignal(this.changesig);
         this.proxy.disconnectSignal(this.notificationsig);
-    }
+    },
     getProxy: function() {
         return this.proxy;
     },
@@ -179,7 +182,6 @@ const DeviceMenuItem = new Lang.Class({
         dbusclient.sendfile(this._ip, this._port);
         _indicator.menu.close();
     },
-
     addnotification: function(text) {
         let newnot = new PopupMenuItem(text, {reactive: false});
         this.notificationsArray.push(newnot);
@@ -256,56 +258,46 @@ const PhonesMenu = new Lang.Class({
     destroy: function() {
         this.parent();
     },
-    show_settings() {
+    show_settings: function() {
         dbusclient.showsettings();
     },
-    setup_device() {
+    setup_device: function() {
         dbusclient.setup_device();
     },
 });
 
-const PhonesMenuOld = new Lang.Class({
-    Name: 'PhonesMenu.PhoneMenu',
-    Extends PanelMenu.SystemStatusbutton,
-
-    _init: function() {
-        this.parent('sphone-symbolic');
-    },
-    show: function() {
-        this.actor.show();
-        updatehandler();
-    },
-    destroy: function() {
-        this.parent();
-    },
-});
-
-function init(extensionMeta) {
-    let theme = imports.gi.Gtk.IconTheme.get_default();
-    theme.append_search_path(extensionMeta.path + "/icons");
-}
-
 let _indicator;
 let regPhones = {};
 let dbusclient;
-let shellversion
 
-function enable() {
-    dbusclient = new DBusClient();
-    shellversion = imports.misc.config.PACKAGE_VERSION.split(".").map(function (x) { return +x;});
+//               ===  Applet configuration === 
 
-    if (shellversion[1] >= 10) {
-        _indicator = new PhonesMenu;
-    } else {
-        _indicator = new PhonesMenuOld;
-    }
-
-    Main.panel.addToStatusArea('phonesMenu', _indicator, 1);
-    updatehandler();
+function MyApplet(orientation, panel_hight, instance_id) {
+    this._init(orientation, panel_hight, instance_id);
 }
 
-function disable() {
-    dbusclient.destroy();
-    _indicator.destroy();
-    regPhones = {};
+MyApplet.prototype = {
+    __proto__: Applet.IconApplet.prototype,
+    _init: function(orientation, panel_hight, instance_id){
+        Applet.IconApplet.prototype._init.call(this, orientation, panel_hight, instance_id);
+        try {
+            this.menu = new Applet.AppletPopupMenu(this, orientation);
+            this.set_applet_tooltip(_("Deskcon"));
+        } catch(e) {
+            global.logError(e);
+        }
+        dbusclient = new DBusClient();
+        this.menu = new Applet.AppletPopupMenu(this,orientation);
+        this.menu.addMenuItem(new PopupMenu.PopupMenuItem("Text Menuitem"));
+        _indicator = new PhonesMenu;
+        this.menu.addMenuItem('phonesMenu', _indicator, 1);
+        updatehandler();
+    },
+    on_applet_clicked: function(event) {
+        this.menu.toggle();
+    },
+};
+
+function main(metadata, orientation, panel_hight, instance_id) {
+    return new MyApplet(orientation, panel_hight, instance_id)
 }
