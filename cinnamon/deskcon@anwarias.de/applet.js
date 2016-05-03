@@ -270,7 +270,7 @@ let _indicator;
 let regPhones = {};
 let dbusclient;
 
-//               ===  Applet configuration === 
+//               ===  Applet configuration ===
 
 function MyApplet(orientation, panel_hight, instance_id) {
     this._init(orientation, panel_hight, instance_id);
@@ -278,20 +278,51 @@ function MyApplet(orientation, panel_hight, instance_id) {
 
 MyApplet.prototype = {
     __proto__: Applet.IconApplet.prototype,
-    _init: function(orientation, panel_hight, instance_id){
+    _init: function(metadata, orientation, panel_hight, instance_id){
+        this._metadata = metadata;
+        this._metapath = this._metadata.path;
         Applet.IconApplet.prototype._init.call(this, orientation, panel_hight, instance_id);
         try {
             this.menu = new Applet.AppletPopupMenu(this, orientation);
+            this.set_applet_icon_path(this._metapath + "/icons/sphone-symbolic.svg");
             this.set_applet_tooltip(_("Deskcon"));
         } catch(e) {
             global.logError(e);
         }
         dbusclient = new DBusClient();
+
+		this.PhonesMenu = new PhonesMenu()
+
         this.menu = new Applet.AppletPopupMenu(this,orientation);
         this.menu.addMenuItem(new PopupMenu.PopupMenuItem("Text Menuitem"));
-        _indicator = new PhonesMenu;
-        this.menu.addMenuItem('phonesMenu', _indicator, 1);
+		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+ //       this.actor.add_child(hbox);
+        let settingsbutton = new PopupMenu.PopupMenuItem("Settings");
+        let setupdevicebutton = new PopupMenu.PopupMenuItem("Setup new Device");
+
+//        settingsbutton.connect('activate', Lang.bind(this, this.show_settings));
+        settingsbutton.connect('button-press-event', Lang.bind(this, this.show_settings));
+        setupdevicebutton.connect('activate', Lang.bind(this, this.setup_device));
+        this.menu.addMenuItem(setupdevicebutton);
+        this.menu.addMenuItem(settingsbutton);
+//        this.menu.addMenuItem(new PopupMenu.PopupSparatorMenuItem());
+
+//        _indicator = new PhonesMenu();
+//        this.menu.addMenuItem('phonesMenu', new PhonesMenu(), 1);
         updatehandler();
+    },
+    show: function() {
+        this.actor.show();
+        updatehandler();
+    },
+    destroy: function() {
+        this.parent();
+    },
+    show_settings: function() {
+        dbusclient.showsettings();
+    },
+    setup_device: function() {
+        dbusclient.setup_device();
     },
     on_applet_clicked: function(event) {
         this.menu.toggle();
@@ -299,5 +330,5 @@ MyApplet.prototype = {
 };
 
 function main(metadata, orientation, panel_hight, instance_id) {
-    return new MyApplet(orientation, panel_hight, instance_id)
+    return new MyApplet(metadata, orientation, panel_hight, instance_id)
 }
